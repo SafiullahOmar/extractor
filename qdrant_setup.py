@@ -1,5 +1,6 @@
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams
+from qdrant_client.http.exceptions import UnexpectedResponse
 import os
 from dotenv import load_dotenv
 
@@ -19,12 +20,26 @@ def setup_qdrant():
     try:
         client.get_collection(collection_name)
         print(f"Collection {collection_name} already exists")
-    except:
+        return
+    except Exception:
+        pass
+    
+    try:
         client.create_collection(
             collection_name=collection_name,
             vectors_config=VectorParams(size=384, distance=Distance.COSINE)
         )
         print(f"Collection {collection_name} created")
+    except UnexpectedResponse as e:
+        if "already exists" in str(e) or "409" in str(e):
+            print(f"Collection {collection_name} already exists")
+        else:
+            raise
+    except Exception as e:
+        if "already exists" in str(e) or "409" in str(e):
+            print(f"Collection {collection_name} already exists")
+        else:
+            raise
 
 if __name__ == "__main__":
     setup_qdrant()
