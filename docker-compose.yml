@@ -31,7 +31,10 @@ services:
       start_period: 10s
 
   app:
-    build: .
+    build:
+      context: .
+      args:
+        REQUIREMENTS_FILE: requirements-app.txt
     environment:
       DB_HOST: postgres
       DB_NAME: pdf_store
@@ -61,7 +64,10 @@ services:
       "
 
   airflow-webserver:
-    build: .
+    build:
+      context: .
+      args:
+        REQUIREMENTS_FILE: requirements-airflow.txt
     environment:
       DB_HOST: postgres
       DB_NAME: pdf_store
@@ -94,7 +100,10 @@ services:
       "
 
   airflow-scheduler:
-    build: .
+    build:
+      context: .
+      args:
+        REQUIREMENTS_FILE: requirements-airflow.txt
     environment:
       DB_HOST: postgres
       DB_NAME: pdf_store

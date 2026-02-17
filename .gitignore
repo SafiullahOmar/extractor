@@ -11,6 +11,9 @@ venv/
 dist/
 build/
 
+# Requirements (keep both)
+requirements.txt
+
 # Environment
 .env
 .env.local

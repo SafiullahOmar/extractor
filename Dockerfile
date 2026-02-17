@@ -10,11 +10,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+ARG REQUIREMENTS_FILE=requirements-app.txt
+COPY requirements-app.txt requirements-airflow.txt ./
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
-    pip install --no-cache-dir email-validator>=2.0.0 && \
-    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir -r ${REQUIREMENTS_FILE} && \
     pip cache purge && \
     rm -rf /tmp/* /var/tmp/* /root/.cache
 
