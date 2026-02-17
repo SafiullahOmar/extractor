@@ -86,7 +86,8 @@ services:
         condition: service_started
     command: >
       sh -c "
-        sleep 15 &&
+        sleep 20 &&
+        until PGPASSWORD=postgres psql -h postgres -U postgres -d airflow -c 'SELECT 1' 2>/dev/null; do sleep 2; done &&
         airflow db init || true &&
         airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com || true &&
         airflow webserver
@@ -118,7 +119,8 @@ services:
         condition: service_started
     command: >
       sh -c "
-        sleep 20 &&
+        sleep 25 &&
+        until PGPASSWORD=postgres psql -h postgres -U postgres -d airflow -c 'SELECT 1' 2>/dev/null; do sleep 2; done &&
         airflow scheduler
       "
 
