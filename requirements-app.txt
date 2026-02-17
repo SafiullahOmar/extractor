@@ -2,7 +2,8 @@ pdfplumber==0.10.3
 PyMuPDF==1.23.8
 psycopg2-binary==2.9.9
 qdrant-client==1.6.9
-sentence-transformers==2.2.2
+sentence-transformers==2.7.0
+huggingface-hub==0.20.1
 fastapi==0.104.1
 uvicorn==0.24.0
 python-dotenv==1.0.0
