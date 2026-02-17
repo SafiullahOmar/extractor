@@ -24,10 +24,11 @@ services:
     volumes:
       - qdrant_data:/qdrant/storage
     healthcheck:
-        test: ["CMD", "curl", "-f", "http://localhost:6333/readyz"]
-        interval: 10s
-        timeout: 5s
-        retries: 5
+      test: ["CMD-SHELL", "timeout 1 bash -c '</dev/tcp/localhost/6333' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   app:
     build: .
@@ -50,10 +51,10 @@ services:
       postgres:
         condition: service_healthy
       qdrant:
-        condition: service_healthy
+        condition: service_started
     command: >
       sh -c "
-        sleep 5 &&
+        sleep 10 &&
         python db_setup.py &&
         python qdrant_setup.py &&
         uvicorn api:app --host 0.0.0.0 --port 8000
@@ -79,12 +80,14 @@ services:
     ports:
       - "8085:8080"
     depends_on:
-      - postgres
-      - qdrant
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
     command: >
       sh -c "
-        sleep 10 &&
-        airflow db init &&
+        sleep 15 &&
+        airflow db init || true &&
         airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com || true &&
         airflow webserver
       "
@@ -107,10 +110,17 @@ services:
       - ./images:/app/images
       - airflow_data:/app/airflow
     depends_on:
-      - postgres
-      - qdrant
-      - airflow-webserver
-    command: airflow scheduler
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      airflow-webserver:
+        condition: service_started
+    command: >
+      sh -c "
+        sleep 20 &&
+        airflow scheduler
+      "
 
 volumes:
   postgres_data:
