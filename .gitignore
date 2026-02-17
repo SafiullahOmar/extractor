@@ -27,6 +27,10 @@ images/
 uploads/
 *.pdf
 
+# Jupyter
+notebooks/.ipynb_checkpoints/
+*.ipynb_checkpoints
+
 # IDE
 .vscode/
 .idea/

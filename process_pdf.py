@@ -1,13 +1,33 @@
 import os
 import json
 import uuid
+import hashlib
+import pdfplumber
 from pdf_extractor import extract_text, extract_tables, extract_images
+from fair_extractor import extract_fair_metadata, store_fair_metadata
 from db_setup import get_connection
 from qdrant_setup import get_qdrant_client
 from sentence_transformers import SentenceTransformer
 from dotenv import load_dotenv
 
 load_dotenv()
+
+def get_file_hash(file_path):
+    hash_sha256 = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_sha256.update(chunk)
+    return hash_sha256.hexdigest()
+
+def get_pdf_metadata(pdf_path):
+    try:
+        with pdfplumber.open(pdf_path) as pdf:
+            return {
+                "total_pages": len(pdf.pages),
+                "metadata": pdf.metadata or {}
+            }
+    except:
+        return {"total_pages": 0, "metadata": {}}
 
 def process_pdf(pdf_path):
     if not os.path.exists(pdf_path):
@@ -20,12 +40,33 @@ def process_pdf(pdf_path):
     collection_name = os.getenv('QDRANT_COLLECTION', 'pdf_documents')
     
     filename = os.path.basename(pdf_path)
+    file_size = os.path.getsize(pdf_path)
+    file_hash = get_file_hash(pdf_path)
+    pdf_info = get_pdf_metadata(pdf_path)
     
     texts = extract_text(pdf_path)
     tables = extract_tables(pdf_path)
     images = extract_images(pdf_path)
     
+    total_chunks = len(texts) + len(tables) + len(images)
+    
+    full_text = "\n\n".join([item['text'] for item in texts])
+    fair_data = {}
+    if full_text:
+        fair_data = extract_fair_metadata(full_text)
+        store_fair_metadata(filename, fair_data)
+    
     points = []
+    
+    base_payload = {
+        "filename": filename,
+        "doi": fair_data.get('doi'),
+        "title": fair_data.get('title'),
+        "authors": fair_data.get('authors', []),
+        "journal": fair_data.get('journal'),
+        "publication_date": fair_data.get('publication_date'),
+        "keywords": fair_data.get('keywords', [])
+    }
     
     for item in texts:
         embedding = model.encode(item['text']).tolist()
@@ -40,7 +81,7 @@ def process_pdf(pdf_path):
             "id": point_id,
             "vector": embedding,
             "payload": {
-                "filename": filename,
+                **base_payload,
                 "page": item['page'],
                 "content_type": "text",
                 "content": item['text']
@@ -60,7 +101,7 @@ def process_pdf(pdf_path):
             "id": point_id,
             "vector": embedding,
             "payload": {
-                "filename": filename,
+                **base_payload,
                 "page": item['page'],
                 "content_type": "table",
                 "table_data": item['table']
@@ -80,7 +121,7 @@ def process_pdf(pdf_path):
             "id": point_id,
             "vector": embedding,
             "payload": {
-                "filename": filename,
+                **base_payload,
                 "page": item['page'],
                 "content_type": "image",
                 "image_path": item['path']
@@ -90,7 +131,33 @@ def process_pdf(pdf_path):
     if points:
         qdrant.upsert(collection_name=collection_name, points=points)
     
+    cur.execute("""
+        INSERT INTO pdf_metadata (filename, file_size, total_pages, file_hash, processing_status, metadata)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        ON CONFLICT (filename) 
+        DO UPDATE SET 
+            file_size = EXCLUDED.file_size,
+            total_pages = EXCLUDED.total_pages,
+            file_hash = EXCLUDED.file_hash,
+            processing_status = EXCLUDED.processing_status,
+            metadata = EXCLUDED.metadata,
+            upload_timestamp = CURRENT_TIMESTAMP
+    """, (filename, file_size, pdf_info['total_pages'], file_hash, 'completed', json.dumps(pdf_info['metadata'])))
+    
     conn.commit()
     conn.close()
     
-    return {"status": "success", "filename": filename, "points": len(points)}
+    return {
+        "status": "success", 
+        "filename": filename, 
+        "points": len(points),
+        "metadata": {
+            "file_size": file_size,
+            "total_pages": pdf_info['total_pages'],
+            "file_hash": file_hash,
+            "text_chunks": len(texts),
+            "table_chunks": len(tables),
+            "image_chunks": len(images),
+            "total_chunks": total_chunks
+        }
+    }

@@ -31,6 +31,46 @@ def setup_database():
         );
     """)
     
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS pdf_metadata (
+            id SERIAL PRIMARY KEY,
+            filename VARCHAR(255) UNIQUE,
+            file_size BIGINT,
+            total_pages INTEGER,
+            file_hash VARCHAR(64),
+            upload_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            processing_status VARCHAR(50) DEFAULT 'completed',
+            metadata JSONB,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    """)
+    
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS fair_metadata (
+            id SERIAL PRIMARY KEY,
+            filename VARCHAR(255) UNIQUE,
+            doi VARCHAR(255),
+            title TEXT,
+            authors JSONB,
+            abstract TEXT,
+            keywords TEXT[],
+            publication_date DATE,
+            journal VARCHAR(255),
+            license VARCHAR(100),
+            repository_url VARCHAR(500),
+            data_availability TEXT,
+            methodology TEXT,
+            citation_info JSONB,
+            controlled_vocabularies JSONB,
+            metadata_schema VARCHAR(100),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    """)
+    
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_filename ON pdf_documents(filename);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_metadata_filename ON pdf_metadata(filename);")
+    
     conn.commit()
     conn.close()
     print("Database setup complete")

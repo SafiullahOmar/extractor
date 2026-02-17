@@ -48,6 +48,7 @@ services:
       - .:/app
       - ./images:/app/images
       - ./uploads:/app/uploads
+      - ./notebooks:/app/notebooks
       - airflow_data:/app/airflow
     ports:
       - "8005:8000"
