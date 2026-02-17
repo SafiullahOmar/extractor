@@ -47,6 +47,7 @@ services:
     volumes:
       - .:/app
       - ./images:/app/images
+      - ./uploads:/app/uploads
       - airflow_data:/app/airflow
     ports:
       - "8005:8000"

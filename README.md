@@ -36,9 +36,18 @@ Note: Use `/app/` prefix for file paths in Docker
 
 ### API Endpoints:
 - `GET http://localhost:8000/` - API info
+- `POST http://localhost:8000/upload` - Upload and process PDF file
 - `GET http://localhost:8000/documents` - List all documents
 - `GET http://localhost:8000/documents/{filename}` - Get document details
 - `GET http://localhost:8000/search?query=your query&limit=5` - Semantic search
+
+### Upload PDF Example:
+```bash
+curl -X POST "http://localhost:8000/upload" \
+  -H "accept: application/json" \
+  -H "Content-Type: multipart/form-data" \
+  -F "file=@/path/to/your/file.pdf"
+```
 
 ### Stop services:
 ```bash

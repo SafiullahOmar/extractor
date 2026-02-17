@@ -1,9 +1,12 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from qdrant_setup import get_qdrant_client
 from db_setup import get_connection
 from sentence_transformers import SentenceTransformer
 from dotenv import load_dotenv
+from process_pdf import process_pdf
 import os
+import shutil
+from pathlib import Path
 
 load_dotenv()
 
@@ -11,6 +14,9 @@ app = FastAPI()
 model = SentenceTransformer('all-MiniLM-L6-v2')
 qdrant = get_qdrant_client()
 collection_name = os.getenv('QDRANT_COLLECTION', 'pdf_documents')
+
+UPLOAD_DIR = Path("uploads")
+UPLOAD_DIR.mkdir(exist_ok=True)
 
 @app.get("/")
 def root():
@@ -56,6 +62,33 @@ def get_document(filename: str):
         result["pages"].append(page_data)
     
     return result
+
+@app.post("/upload")
+async def upload_and_process(file: UploadFile = File(...)):
+    if not file.filename.endswith('.pdf'):
+        raise HTTPException(status_code=400, detail="Only PDF files are supported")
+    
+    file_path = UPLOAD_DIR / file.filename
+    
+    try:
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        result = process_pdf(str(file_path))
+        
+        if "error" in result:
+            raise HTTPException(status_code=500, detail=result["error"])
+        
+        return {
+            "status": "success",
+            "filename": file.filename,
+            "message": f"PDF processed successfully. {result.get('points', 0)} items stored.",
+            "details": result
+        }
+    except Exception as e:
+        if file_path.exists():
+            file_path.unlink()
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/search")
 def search_documents(query: str, limit: int = 5):

@@ -24,6 +24,7 @@ airflow/
 
 # Images
 images/
+uploads/
 *.pdf
 
 # IDE
