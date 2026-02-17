@@ -24,10 +24,10 @@ services:
     volumes:
       - qdrant_data:/qdrant/storage
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:6333/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+        test: ["CMD", "curl", "-f", "http://localhost:6333/readyz"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
 
   app:
     build: .
