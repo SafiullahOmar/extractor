@@ -19,14 +19,14 @@ docker-compose up -d
 
 3. Access services:
    - FastAPI: http://localhost:8000
-   - Airflow UI: http://localhost:8080 (admin/admin)
+   - Airflow UI: http://localhost:8085 (admin/admin)
    - Qdrant UI: http://localhost:6333/dashboard
 
 ## Usage
 
 ### Process PDF via Airflow:
 1. Copy PDF file to project directory
-2. Open Airflow UI: http://localhost:8080
+2. Open Airflow UI: http://localhost:8085
 3. Login: admin/admin
 4. Trigger DAG `pdf_extraction` with config:
 ```json
@@ -49,3 +49,7 @@ docker-compose down
 ```bash
 docker-compose logs -f app
 ```
+
+## Production Setup with Nginx
+
+See `nginx-setup.md` for nginx configuration to access APIs via browser on port 80.
