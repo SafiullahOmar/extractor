@@ -46,7 +46,7 @@ services:
       - ./images:/app/images
       - airflow_data:/app/airflow
     ports:
-      - "8000:8000"
+      - "8005:8000"
     depends_on:
       postgres:
         condition: service_healthy
