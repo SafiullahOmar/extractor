@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir email-validator==1.3.1 && \
     pip install --no-cache-dir -r requirements.txt && \
     pip cache purge && \
     rm -rf /tmp/* /var/tmp/* /root/.cache
