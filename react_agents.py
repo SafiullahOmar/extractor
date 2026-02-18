@@ -8,6 +8,21 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
+def _agent_log(agent_name: str, msg: str, **kwargs):
+    """Print agent activity to terminal for live logs."""
+    extra = " ".join(f"{k}={v!r}" for k, v in kwargs.items()) if kwargs else ""
+    print(f"[AGENT:{agent_name}] {msg} {extra}".strip(), flush=True)
+
+
+def _tool_result_summary(tool_name: str, result: Any):
+    """Print a one-line summary of tool output to terminal."""
+    if isinstance(result, dict):
+        keys = list(result.keys())[:5]
+        print(f"[AGENT:tool] {tool_name} -> keys={keys}", flush=True)
+    else:
+        print(f"[AGENT:tool] {tool_name} -> {str(result)[:100]}", flush=True)
+
 llm = ChatOpenAI(
     model=os.getenv('OPENAI_MODEL', 'gpt-4o-mini'),
     temperature=0,
@@ -36,40 +51,47 @@ Current observation:
 {json.dumps(observation, indent=2)}"""
         
         current_observation = observation.copy()
-        
+        _agent_log(self.name, "run started", iterations_max=max_iterations)
+
         for i in range(max_iterations):
             response = self.llm.invoke(prompt_template)
             thought, action, action_input = self._parse_response(response.content)
-            
+            _agent_log(self.name, f"iteration {i + 1}", thought=thought[:80] + "..." if len(thought) > 80 else thought, action=action)
+
             iterations.append({
                 "iteration": i + 1,
                 "thought": thought,
                 "action": action,
                 "action_input": action_input
             })
-            
+
             if action == "FINISH" or action.upper() == "FINISH":
+                _agent_log(self.name, "finished", final_thought=(thought[:80] + "..." if len(thought) > 80 else thought))
                 current_observation["iterations"] = iterations
                 current_observation["final_thought"] = thought
                 return current_observation
-            
+
             if action in self.tools:
                 try:
                     tool_result = self.tools[action].run(action_input)
+                    _tool_result_summary(action, tool_result)
                     current_observation["last_action"] = action
                     current_observation["last_result"] = tool_result
-                    
+
                     if isinstance(tool_result, dict):
                         current_observation.update(tool_result)
-                    
+
                     prompt_template += f"\n\nThought: {thought}\nAction: {action}\nAction Input: {action_input}\nObservation: {json.dumps(tool_result, indent=2) if isinstance(tool_result, dict) else str(tool_result)}"
                 except Exception as e:
+                    print(f"[AGENT:{self.name}] tool {action} error: {e}", flush=True)
                     current_observation["error"] = str(e)
                     prompt_template += f"\n\nError executing {action}: {str(e)}"
             else:
+                print(f"[AGENT:{self.name}] unknown action: {action}", flush=True)
                 current_observation["error"] = f"Unknown action: {action}. Available: {', '.join(self.tools.keys())}"
                 prompt_template += f"\n\nError: Unknown action {action}"
-        
+
+        _agent_log(self.name, "max iterations reached")
         current_observation["iterations"] = iterations
         return current_observation
     

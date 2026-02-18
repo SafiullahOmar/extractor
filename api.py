@@ -97,6 +97,45 @@ def get_document(filename: str):
     
     return result
 
+@app.get("/documents/{filename}/status")
+def get_document_status(filename: str):
+    """Get processing and agent curation status for a document."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT processing_status, file_size, total_pages, upload_timestamp
+        FROM pdf_metadata WHERE filename = %s
+    """, (filename,))
+    meta = cur.fetchone()
+    cur.execute("""
+        SELECT curation_status, quality_score, validation_status,
+               provenance_chain, updated_at
+        FROM fair_metadata WHERE filename = %s
+    """, (filename,))
+    fair = cur.fetchone()
+    cur.execute("SELECT COUNT(*) FROM pdf_documents WHERE filename = %s", (filename,))
+    chunks = cur.fetchone()[0]
+    conn.close()
+    if not meta:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return {
+        "filename": filename,
+        "processing": {
+            "status": meta[0],
+            "file_size": meta[1],
+            "total_pages": meta[2],
+            "upload_timestamp": str(meta[3]),
+            "chunks_stored": chunks,
+        },
+        "agent_curation": {
+            "curation_status": fair[0] if fair else None,
+            "quality_score": fair[1] if fair else None,
+            "validation_status": fair[2] if fair else None,
+            "provenance_steps": len(fair[3]) if fair and fair[3] else 0,
+            "last_updated": str(fair[4]) if fair and fair[4] else None,
+        } if fair else None,
+    }
+
 @app.get("/documents/{filename}/metadata")
 def get_document_metadata(filename: str):
     conn = get_connection()

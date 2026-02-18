@@ -89,7 +89,13 @@ class WorkflowState(TypedDict):
     provenance_chain: list
     processing_status: str
 
+def _log(step: str, msg: str, **kwargs):
+    """Print workflow/agent output to terminal for live logs."""
+    extra = " ".join(f"{k}={v}" for k, v in kwargs.items()) if kwargs else ""
+    print(f"[WORKFLOW] {step} | {msg} {extra}".strip(), flush=True)
+
 def extract_pdf_text(state: WorkflowState) -> WorkflowState:
+    _log("extract_text", "Starting PDF text extraction", file=state["filename"])
     try:
         texts = extract_text(state["pdf_path"])
         full_text = "\n\n".join([item['text'] for item in texts])
@@ -103,7 +109,9 @@ def extract_pdf_text(state: WorkflowState) -> WorkflowState:
         })
         log_provenance(state["filename"], "extract_text", "pdf_extractor", 
                       output_data={"text_length": len(full_text)})
+        _log("extract_text", "Done", chars=len(full_text), items=len(texts))
     except Exception as e:
+        _log("extract_text", "Error", error=str(e))
         state["provenance_chain"].append({
             "action": "extract_text",
             "agent": "pdf_extractor",
@@ -117,6 +125,7 @@ def extract_pdf_text(state: WorkflowState) -> WorkflowState:
     return state
 
 def extract_fair_react(state: WorkflowState) -> WorkflowState:
+    _log("extract_fair_react", "Starting metadata extraction agent", file=state["filename"])
     try:
         agent = create_metadata_extraction_agent()
         
@@ -133,7 +142,7 @@ def extract_fair_react(state: WorkflowState) -> WorkflowState:
         result = agent.run(observation, max_iterations=6)
         
         state["fair_metadata"] = extract_metadata_from_result(result, {})
-        
+        _log("extract_fair_react", "Done", iterations=len(result.get("iterations", [])), keys=list(state["fair_metadata"].keys())[:8])
         state["provenance_chain"].append({
             "action": "extract_fair_react",
             "agent": "metadata_extraction_agent",
@@ -146,6 +155,7 @@ def extract_fair_react(state: WorkflowState) -> WorkflowState:
                       input_data={"text_length": len(state["extracted_text"]), "chunks": len(text_chunks)},
                       output_data=state["fair_metadata"])
     except Exception as e:
+        _log("extract_fair_react", "Error, using fallback", error=str(e))
         state["provenance_chain"].append({
             "action": "extract_fair_react",
             "agent": "metadata_extraction_agent",
@@ -161,6 +171,7 @@ def extract_fair_react(state: WorkflowState) -> WorkflowState:
     return state
 
 def curate_react(state: WorkflowState) -> WorkflowState:
+    _log("curate_react", "Starting curation agent", file=state["filename"])
     try:
         agent = create_curation_agent()
         
@@ -193,11 +204,12 @@ def curate_react(state: WorkflowState) -> WorkflowState:
         quality_score = state["quality_assessment"].get("quality_score", 0) if isinstance(state.get("quality_assessment"), dict) else 0
         update_curation_status(state["filename"], "curated",
                               quality_score=quality_score)
-        
+        _log("curate_react", "Done", iterations=len(result.get("iterations", [])), quality_score=quality_score)
         log_provenance(state["filename"], "curate_react", "curation_agent",
                       input_data=observation,
                       output_data=result)
     except Exception as e:
+        _log("curate_react", "Error", error=str(e))
         state["provenance_chain"].append({
             "action": "curate_react",
             "agent": "curation_agent",
@@ -211,6 +223,7 @@ def curate_react(state: WorkflowState) -> WorkflowState:
     return state
 
 def quality_assurance_react(state: WorkflowState) -> WorkflowState:
+    _log("quality_assurance_react", "Starting quality assurance agent", file=state["filename"])
     try:
         agent = create_quality_agent()
         
@@ -244,11 +257,12 @@ def quality_assurance_react(state: WorkflowState) -> WorkflowState:
         quality_score = state["quality_assessment"].get("quality_score", 0) if isinstance(state.get("quality_assessment"), dict) else 0
         update_curation_status(state["filename"], "quality_assured",
                               quality_score=quality_score)
-        
+        _log("quality_assurance_react", "Done", iterations=len(result.get("iterations", [])), quality_score=quality_score)
         log_provenance(state["filename"], "quality_assurance_react", "quality_agent",
                       input_data=observation,
                       output_data=result)
     except Exception as e:
+        _log("quality_assurance_react", "Error", error=str(e))
         state["provenance_chain"].append({
             "action": "quality_assurance_react",
             "agent": "quality_agent",
@@ -262,8 +276,10 @@ def quality_assurance_react(state: WorkflowState) -> WorkflowState:
     return state
 
 def store_content(state: WorkflowState) -> WorkflowState:
+    _log("store_content", "Storing content and vectors", file=state["filename"])
     try:
         process_pdf(state["pdf_path"], skip_fair=True, fair_metadata=state["fair_metadata"])
+        _log("store_content", "Done")
         state["provenance_chain"].append({
             "action": "store_content",
             "agent": "content_storage",
@@ -273,6 +289,7 @@ def store_content(state: WorkflowState) -> WorkflowState:
         log_provenance(state["filename"], "store_content", "content_storage",
                       output_data={"status": "stored"})
     except Exception as e:
+        _log("store_content", "Error", error=str(e))
         state["provenance_chain"].append({
             "action": "store_content",
             "agent": "content_storage",
@@ -286,10 +303,12 @@ def store_content(state: WorkflowState) -> WorkflowState:
     return state
 
 def store_fair(state: WorkflowState) -> WorkflowState:
+    _log("store_fair", "Storing FAIR metadata and finalizing", file=state["filename"])
     store_fair_metadata(state["filename"], state["fair_metadata"], state["provenance_chain"])
     state["processing_status"] = "completed"
     update_curation_status(state["filename"], "completed",
                           quality_score=state["quality_assessment"].get("quality_score"))
+    _log("store_fair", "Workflow completed", file=state["filename"])
     return state
 
 
@@ -314,6 +333,7 @@ app = workflow.compile()
 
 def process_paper(pdf_path):
     filename = os.path.basename(pdf_path)
+    _log("process_paper", "Starting agent workflow", file=filename)
     initial_state = {
         "pdf_path": pdf_path,
         "filename": filename,

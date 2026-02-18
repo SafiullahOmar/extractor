@@ -9,12 +9,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 llm = ChatOpenAI(
-    model=os.getenv('OPENAI_MODEL', 'gpt-4o-mini'),
+    model=os.getenv('gpt-4o-mini'),
     temperature=0,
     api_key=os.getenv('OPENAI_API_KEY')
 )
 
 def validate_metadata(fair_data):
+    print(f"[CURATION] validate_metadata called", flush=True)
     prompt = ChatPromptTemplate.from_messages([
         ("system", """Validate FAIR metadata for completeness and correctness. Return JSON with:
 - is_valid: boolean
@@ -34,6 +35,7 @@ def validate_metadata(fair_data):
         return {"is_valid": False, "errors": ["Validation failed"]}
 
 def enrich_metadata(fair_data, pdf_text):
+    print(f"[CURATION] enrich_metadata called text_len={len(pdf_text)}", flush=True)
     prompt = ChatPromptTemplate.from_messages([
         ("system", """Enrich FAIR metadata by extracting additional information. Return JSON with enriched fields:
 - Add missing PACS codes if physics paper
@@ -57,6 +59,7 @@ def enrich_metadata(fair_data, pdf_text):
         return fair_data
 
 def assess_quality(fair_data):
+    print(f"[CURATION] assess_quality called", flush=True)
     prompt = ChatPromptTemplate.from_messages([
         ("system", """Assess quality of FAIR metadata. Return JSON with:
 - quality_score: float 0-1
@@ -74,6 +77,7 @@ def assess_quality(fair_data):
         return {"quality_score": 0.5, "fair_compliance": {}}
 
 def resolve_conflicts(fair_data, existing_data):
+    print(f"[CURATION] resolve_conflicts called", flush=True)
     prompt = ChatPromptTemplate.from_messages([
         ("system", """Resolve conflicts between new and existing metadata. Return JSON with:
 - resolved_data: merged and resolved metadata
@@ -94,9 +98,10 @@ def resolve_conflicts(fair_data, existing_data):
         return {"resolved_data": fair_data, "conflicts": []}
 
 def update_curation_status(filename, status, quality_score=None, validation_status=None):
+    print(f"[CURATION] update_curation_status file={filename} status={status} quality_score={quality_score} validation_status={validation_status}", flush=True)
     conn = get_connection()
     cur = conn.cursor()
-    
+
     update_fields = ["curation_status = %s"]
     values = [status]
     
