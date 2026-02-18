@@ -50,6 +50,8 @@ def setup_database():
             id SERIAL PRIMARY KEY,
             filename VARCHAR(255) UNIQUE,
             doi VARCHAR(255),
+            handle VARCHAR(255),
+            ark VARCHAR(255),
             title TEXT,
             authors JSONB,
             abstract TEXT,
@@ -61,12 +63,35 @@ def setup_database():
             data_availability TEXT,
             methodology TEXT,
             citation_info JSONB,
-            controlled_vocabularies JSONB,
-            metadata_schema VARCHAR(100),
+            pacs_codes TEXT[],
+            mesh_terms TEXT[],
+            subject_classifications JSONB,
+            metadata_schema VARCHAR(100) DEFAULT 'DataCite',
+            datacite_schema JSONB,
+            provenance_chain JSONB,
+            curation_status VARCHAR(50) DEFAULT 'pending',
+            quality_score FLOAT,
+            validation_status VARCHAR(50),
+            enrichment_history JSONB,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
     """)
+    
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS provenance (
+            id SERIAL PRIMARY KEY,
+            filename VARCHAR(255),
+            action VARCHAR(100),
+            agent VARCHAR(100),
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            input_data JSONB,
+            output_data JSONB,
+            metadata JSONB
+        );
+    """)
+    
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_provenance_filename ON provenance(filename);")
     
     cur.execute("CREATE INDEX IF NOT EXISTS idx_filename ON pdf_documents(filename);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_metadata_filename ON pdf_metadata(filename);")

@@ -29,7 +29,7 @@ def get_pdf_metadata(pdf_path):
     except:
         return {"total_pages": 0, "metadata": {}}
 
-def process_pdf(pdf_path):
+def process_pdf(pdf_path, skip_fair=False, fair_metadata=None):
     if not os.path.exists(pdf_path):
         return {"error": f"PDF not found: {pdf_path}"}
     
@@ -50,11 +50,12 @@ def process_pdf(pdf_path):
     
     total_chunks = len(texts) + len(tables) + len(images)
     
-    full_text = "\n\n".join([item['text'] for item in texts])
-    fair_data = {}
-    if full_text:
-        fair_data = extract_fair_metadata(full_text)
-        store_fair_metadata(filename, fair_data)
+    fair_data = fair_metadata or {}
+    if not skip_fair:
+        full_text = "\n\n".join([item['text'] for item in texts])
+        if full_text:
+            fair_data = extract_fair_metadata(full_text)
+            store_fair_metadata(filename, fair_data)
     
     points = []
     

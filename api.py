@@ -359,9 +359,11 @@ def get_fair_metadata(filename: str):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
-        SELECT doi, title, authors, abstract, keywords, publication_date,
+        SELECT doi, handle, ark, title, authors, abstract, keywords, publication_date,
                journal, license, repository_url, data_availability, methodology,
-               citation_info, controlled_vocabularies, metadata_schema
+               citation_info, pacs_codes, mesh_terms, subject_classifications,
+               metadata_schema, datacite_schema, provenance_chain, curation_status,
+               quality_score, validation_status
         FROM fair_metadata WHERE filename = %s
     """, (filename,))
     row = cur.fetchone()
@@ -372,18 +374,59 @@ def get_fair_metadata(filename: str):
     
     return {
         "filename": filename,
-        "doi": row[0],
-        "title": row[1],
-        "authors": row[2],
-        "abstract": row[3],
-        "keywords": row[4],
-        "publication_date": str(row[5]) if row[5] else None,
-        "journal": row[6],
-        "license": row[7],
-        "repository_url": row[8],
-        "data_availability": row[9],
-        "methodology": row[10],
-        "citation_info": row[11],
-        "controlled_vocabularies": row[12],
-        "metadata_schema": row[13]
+        "pids": {
+            "doi": row[0],
+            "handle": row[1],
+            "ark": row[2]
+        },
+        "title": row[3],
+        "authors": row[4],
+        "abstract": row[5],
+        "keywords": row[6],
+        "publication_date": str(row[7]) if row[7] else None,
+        "journal": row[8],
+        "license": row[9],
+        "repository_url": row[10],
+        "data_availability": row[11],
+        "methodology": row[12],
+        "citation_info": row[13],
+        "vocabularies": {
+            "pacs_codes": row[14],
+            "mesh_terms": row[15],
+            "subject_classifications": row[16]
+        },
+        "metadata_schema": row[17],
+        "datacite_schema": row[18],
+        "provenance_chain": row[19],
+        "curation": {
+            "status": row[20],
+            "quality_score": row[21],
+            "validation_status": row[22]
+        }
+    }
+
+@app.get("/documents/{filename}/provenance")
+def get_provenance(filename: str):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT action, agent, timestamp, input_data, output_data, metadata
+        FROM provenance WHERE filename = %s ORDER BY timestamp
+    """, (filename,))
+    rows = cur.fetchall()
+    conn.close()
+    
+    return {
+        "filename": filename,
+        "provenance": [
+            {
+                "action": row[0],
+                "agent": row[1],
+                "timestamp": str(row[2]),
+                "input_data": row[3],
+                "output_data": row[4],
+                "metadata": row[5]
+            }
+            for row in rows
+        ]
     }

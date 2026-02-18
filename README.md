@@ -18,7 +18,7 @@ docker-compose up -d
 3. Wait for services to be ready (30-60 seconds)
 
 3. Access services:
-   - FastAPI: http://localhost:8000
+   - FastAPI: http://localhost:8005
    - Airflow UI: http://localhost:8085 (admin/admin)
    - Qdrant UI: http://localhost:6333/dashboard
 
@@ -35,41 +35,54 @@ docker-compose up -d
 Note: Use `/app/` prefix for file paths in Docker
 
 ### API Endpoints:
-- `GET http://localhost:8000/` - API info
-- `POST http://localhost:8000/upload?use_agent=true` - Upload and process PDF with agent workflow (extracts FAIR metadata)
-- `POST http://localhost:8000/upload` - Upload and process PDF file
-- `GET http://localhost:8000/documents` - List all documents with metadata
-- `GET http://localhost:8000/documents/{filename}` - Get document details with metadata
-- `GET http://localhost:8000/documents/{filename}/metadata` - Get document metadata only
-- `GET http://localhost:8000/documents/{filename}/fair` - Get FAIR-compliant metadata
-- `GET http://localhost:8000/documents/{filename}/chunks` - Get all chunks (optionally filter by `?content_type=text|table|image`)
-- `GET http://localhost:8000/documents/{filename}/text` - Get all text chunks
-- `GET http://localhost:8000/documents/{filename}/images` - Get all images
-- `GET http://localhost:8000/documents/{filename}/tables` - Get all tables
-- `GET http://localhost:8000/search?query=your query&limit=5` - Semantic search
-- `GET http://localhost:8000/search?query=quantum&author=Einstein&journal=Nature&limit=5` - Filtered semantic search
+- `GET http://localhost:8005/` - API info
+- `POST http://localhost:8005/upload?use_agent=true` - Upload and process PDF with agent workflow (extracts FAIR metadata)
+- `POST http://localhost:8005/upload` - Upload and process PDF file
+- `GET http://localhost:8005/documents` - List all documents with metadata
+- `GET http://localhost:8005/documents/{filename}` - Get document details with metadata
+- `GET http://localhost:8005/documents/{filename}/metadata` - Get document metadata only
+- `GET http://localhost:8005/documents/{filename}/fair` - Get FAIR-compliant metadata (with PIDs, vocabularies, provenance)
+- `GET http://localhost:8005/documents/{filename}/provenance` - Get complete provenance chain
+- `GET http://localhost:8005/documents/{filename}/chunks` - Get all chunks (optionally filter by `?content_type=text|table|image`)
+- `GET http://localhost:8005/documents/{filename}/text` - Get all text chunks
+- `GET http://localhost:8005/documents/{filename}/images` - Get all images
+- `GET http://localhost:8005/documents/{filename}/tables` - Get all tables
+- `GET http://localhost:8005/search?query=your query&limit=5` - Semantic search
+- `GET http://localhost:8005/search?query=quantum&author=Einstein&journal=Nature&limit=5` - Filtered semantic search
 
 ### Upload PDF Example:
 ```bash
 # Standard upload
-curl -X POST "http://localhost:8000/upload" \
+curl -X POST "http://localhost:8005/upload" \
   -H "accept: application/json" \
   -H "Content-Type: multipart/form-data" \
   -F "file=@/path/to/your/file.pdf"
 
 # Upload with agent workflow (FAIR metadata extraction)
-curl -X POST "http://localhost:8000/upload?use_agent=true" \
+curl -X POST "http://localhost:8005/upload?use_agent=true" \
   -H "accept: application/json" \
   -H "Content-Type: multipart/form-data" \
   -F "file=@/path/to/your/file.pdf"
 ```
 
 ### Agent Workflow:
-The agent workflow uses LangChain/LangGraph to:
+The multi-agent curation workflow uses LangGraph to:
 1. Extract text from PDF
-2. Extract FAIR-compliant metadata (DOI, title, authors, abstract, keywords, etc.)
-3. Store content in PostgreSQL and Qdrant
-4. Store FAIR metadata for research paper compliance
+2. Extract FAIR-compliant metadata (full DataCite schema)
+3. **Validate** metadata (completeness, correctness)
+4. **Enrich** metadata (add missing PACS codes, MeSH terms)
+5. **Assess quality** (FAIR compliance scoring)
+6. **Resolve conflicts** (if document already exists)
+7. Store content in PostgreSQL and Qdrant
+8. Store FAIR metadata with provenance tracking
+
+### Enhanced FAIR Compliance:
+- **Full DataCite 4.4 schema** support
+- **PIDs**: DOI, Handle, ARK identifiers
+- **Standardized vocabularies**: PACS codes, MeSH terms
+- **Provenance tracking**: Complete chain of curation actions
+- **Quality assessment**: FAIR compliance scoring
+- **Curation status**: Track validation, enrichment, quality assessment
 
 ### Jupyter Notebooks:
 Access notebooks in `notebooks/` directory for experiments:
@@ -80,22 +93,22 @@ jupyter notebook notebooks/experiment_template.ipynb
 ### Check Document Content Examples:
 ```bash
 # Get all chunks for a document
-curl "http://localhost:8000/documents/your_file.pdf/chunks"
+curl "http://localhost:8005/documents/your_file.pdf/chunks"
 
 # Get only text chunks
-curl "http://localhost:8000/documents/your_file.pdf/text"
+curl "http://localhost:8005/documents/your_file.pdf/text"
 
 # Get only images
-curl "http://localhost:8000/documents/your_file.pdf/images"
+curl "http://localhost:8005/documents/your_file.pdf/images"
 
 # Get only tables
-curl "http://localhost:8000/documents/your_file.pdf/tables"
+curl "http://localhost:8005/documents/your_file.pdf/tables"
 
 # Filter chunks by type
-curl "http://localhost:8000/documents/your_file.pdf/chunks?content_type=text"
+curl "http://localhost:8005/documents/your_file.pdf/chunks?content_type=text"
 
 # Get document metadata
-curl "http://localhost:8000/documents/your_file.pdf/metadata"
+curl "http://localhost:8005/documents/your_file.pdf/metadata"
 ```
 
 ## Metadata Storage
